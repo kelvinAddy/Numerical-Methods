@@ -1,8 +1,10 @@
 from PyQt6.QtWidgets import (QLabel, QTableWidget, QWidget,
                             QFormLayout, QGroupBox, QPushButton,
                             QLineEdit, QHBoxLayout, QVBoxLayout,
-                            QCheckBox)
-from PyQt6.QtCore import Qt
+                            QCheckBox, QFileDialog, QMessageBox,
+                            QTableView)
+from PyQt6.QtCore import Qt, QRegularExpression
+from PyQt6.QtGui import QStandardItem, QStandardItemModel, QRegularExpressionValidator
 import numpy as np
 import csv
 import matplotlib
@@ -35,7 +37,6 @@ class PlotGraph(QWidget):
         """Creates and arranges widgets in the graph plot window"""
         # Creates required QlineEdits and their layouts
         self.func_edit  = QLineEdit()
-        self.func_edit.setPlaceholderText("Enter function in python synthax. Eg: x**2 - 4*x")
         self.x_lower = QLineEdit()
         self.x_upper = QLineEdit()
         self.step_size = QLineEdit()
@@ -61,16 +62,21 @@ class PlotGraph(QWidget):
         func_data_grpbox.setObjectName("main")
         func_data_grpbox.setLayout(func_data_layout)
 
-        # Creates a table widget, QPushButton and its layout
-        self.table = QTableWidget()
-        self.table.setRowCount(500)
-        self.table.setColumnCount(2)
+        # Creates a table model, tableview widget, QPushButton and its layout
+        self.table_model = QStandardItemModel()
+        self.table_model.setRowCount(200)
+        self.table_model.setColumnCount(2)
+        
+        self.table = QTableView()
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setModel(self.table_model)
         self.table.setDisabled(True)
 
         # Creates enable checkbox, load data QPushButton and their layout
         self.enable_table = QCheckBox("Enable")
-        self.enable_table.clicked.connect(lambda state: self.table.setEnabled(state))
+        self.enable_table.clicked.connect(self.enableTable)
         self.load_data = QPushButton("Load Data")
+        self.load_data.clicked.connect(self.loadCSV)
 
         buttons_layout = QHBoxLayout()
         buttons_layout.addWidget(self.enable_table)
@@ -115,25 +121,124 @@ class PlotGraph(QWidget):
         self.graph_main_layout.addWidget(canvas_groupbox)
         self.setLayout(self.graph_main_layout)
 
-    
-    def getData(self):
-        """gets required data for plotting"""
-        if self.enable_table.isChecked:
-            self.function = lambda x: eval(self.func_edit.text())
-            x_lower_num = float(self.x_lower.text())
-            x_upper_num = float(self.x_upper.text())
-            x_step_num = float(self.step_size.text())
+        self.validateFields()
 
-            self.x_values = np.arange(x_lower_num, x_upper_num + x_step_num, x_step_num)
-            self.y_values = self.function(self.x_values)
+    def validateFields(self):
+        """Allows input of text which match a given pattern"""
+        number_regex = QRegularExpression(r"-?[0-9-]+.?[0-9]+")
+        expression_regex = QRegularExpression(r"[\s\w 0-9 /()*+.-]+")
+
+        for i in self.func_edit, self.x_lower, self.x_upper, self.step_size:
+            if i is self.func_edit:
+                i.setValidator(QRegularExpressionValidator(QRegularExpression(expression_regex)))
+            else:
+                i.setValidator(QRegularExpressionValidator(QRegularExpression(number_regex)))
+
+    def getFuncData(self):
+        """Gets data from the QlinEdits in the function data groupbox"""
+        # Gets function data
+        function = lambda x: eval(self.func_edit.text())
+        x_lower_num = float(self.x_lower.text())
+        x_upper_num = float(self.x_upper.text())
+        x_step_num = float(self.step_size.text())
+
+        # variables to hold x and y axis data
+        x_values = np.arange(x_lower_num, x_upper_num + x_step_num, x_step_num)
+        y_values = function(x_values)
+        return x_values, y_values
+
+    def enableTable(self, state):
+        """Enables the table or function data groupbox widgets based on the state of the enable checkbox"""
+        if state:
+            self.table.setEnabled(True)
+            for widget in (self.func_edit, self.x_upper, self.x_lower, self.step_size):
+                widget.setDisabled(True)
         else:
-            pass
+            self.table.setDisabled(True)
+            for widget in (self.func_edit, self.x_upper, self.x_lower, self.step_size):
+                widget.setDisabled(False)
 
-    def plotFunc(self):
-        """Embeds a matplotlib plot onto the canvas"""
-        self.getData()
+
+    def getTableData(self):
+        """Gets table data about the function to be plotted"""
+        # List to hold x and y axis data
+        list_x, list_y = [], []
+        for index in range(self.table_model.rowCount()):
+            item_x = self.table_model.item(index , 0)
+            item_y = self.table_model.item(index, 1)
+
+            if item_x and item_y:
+                list_x.append(float(item_x.text()))
+                list_y.append(float(item_y.text()))
+
+        return list_x, list_y
+
+    def drawOnCanvas(self, x, y):
+        """Embeds a matplotlib plot figure onto the canvas"""
+        # Clears the canvas and embeds a plot figure on it
         self.canvas.fig.clear()
         self.canvas.add_subplot()
-        self.canvas.axes.plot(self.x_values, self.y_values, color="green")
+        self.canvas.axes.plot(x, y, color="green")
         self.canvas.draw()
 
+    def checkForEmptyFields(self, function, *args):
+        """Returns a warning message if empty fields exist else, calls a function"""
+        if not all((self.func_edit.text(), self.x_upper.text(), self.x_lower.text(), self.step_size.text())):
+            QMessageBox.warning(self, "Empty Fields",
+                                "Empty Fields exist in function data, ensure required data is entered in every field.",
+                                QMessageBox.StandardButton.Ok)
+        else:
+            return function(*args)
+    
+    
+    def plotFunc(self):
+        """Plots the function based on the state of the enable checkbutton"""
+        try:
+            if self.enable_table.isChecked():
+                plot_data = self.getTableData()
+                if plot_data:
+                    self.x_values, self.y_values = plot_data
+                    self.drawOnCanvas(self.x_values, self.y_values)
+            else:
+                plot_data = self.checkForEmptyFields(self.getFuncData)
+                if plot_data:
+                    self.x_values, self.y_values = plot_data
+                    self.drawOnCanvas(self.x_values, self.y_values)
+
+        except SyntaxError as error:
+            QMessageBox.warning(self, "Syntax Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except TypeError as error:
+            QMessageBox.warning(self, "Type Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except ValueError as error:
+            QMessageBox.warning(self, "Value Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except RuntimeError as error:
+            QMessageBox.warning(self, "Runtime Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except OverflowError as error:
+            QMessageBox.warning(self, "Overflow Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except ZeroDivisionError as error:
+            QMessageBox.warning(self, "Division by zero Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except NameError as error:
+            QMessageBox.warning(self, "Name Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+    
+    def loadCSV(self):
+        """Loads csv data into the table widget"""
+        if self.enable_table.isChecked():
+            file_name, _ = QFileDialog.getOpenFileName(self, "Open file",".","CSV file(*.csv)")
+            if file_name:
+                self.table_model.clear()
+                with open(file_name, "r") as file:
+                    csv_file = csv.reader(file)
+                    self.table_model.setHorizontalHeaderLabels(next(csv_file))
+
+                    for index, items in enumerate(csv.reader(file)):
+                        item = [QStandardItem(i) for i in items]
+                        self.table_model.insertRow(index, item)
+        else:
+            QMessageBox.warning(self,"Error","Table must be enabled to load csv file",QMessageBox.StandardButton.Ok)
