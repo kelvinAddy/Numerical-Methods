@@ -1,12 +1,10 @@
 # Written by Kelvin Addy
 
-# Import required modules
+# Imports required modules
 import sys, os, time
 
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget,
-                             QVBoxLayout, QHBoxLayout, QWidget,
-                             QStatusBar, QSplashScreen)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QHBoxLayout, QWidget, QStatusBar, QSplashScreen)
 from rootSolving import RootSolving
 from optimization import Optimization
 from integration import Integration
@@ -39,10 +37,12 @@ class MainWindow(QMainWindow):
         
         self.main_tab = QTabWidget()
 
+        # Creates a statusbar object to show a message
         statusbar = QStatusBar()
         statusbar.showMessage("Numerical Methods Version 1.00")
         self.setStatusBar(statusbar)
 
+        # Dictionary to hold widgets for self.main_tab and their respective names
         method_dict = {self.root_tab: "Root Solving",
                        self.graph_tab: "Graph Plotting",
                        self.optimum_tab: "Unconstrained Optimization",
@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         integral_wdgt_hbox.addWidget(integral_wdgt)
         self.integral_tab.setLayout(integral_wdgt_hbox)
 
-
+# Gets the absolute path of the current script file
 basedir = os.path.dirname(__file__)
 
 if __name__ == "__main__":
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     app.setWindowIcon(QIcon(os.path.join(basedir, "./images/endless.png")))
     splash = QSplashScreen(QPixmap(os.path.join(basedir, "./images/endless.png")))
     splash.show()
-    time.sleep(2)
+    time.sleep(1)
     app.processEvents()
     window = MainWindow()
     splash.finish(window)
