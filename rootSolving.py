@@ -240,7 +240,7 @@ class RootSolving(QWidget):
             self.x_u = float(self.bracket_x2.text())
             self.x_l = float(self.bracket_x1.text())
 
-    def checkForErrors(self, function):
+    def checkForEmptyFields(self, function):
         """Calls a function if no error is found"""
         if not all((self.func_edit.text(), self.tol_edit.text())):
             QMessageBox.warning(self, "Empty Fields",
