@@ -2,14 +2,14 @@
 
 # imports the required widgets
 import os
-
+import numpy as np
 from PyQt6.QtWidgets import (QWidget, QPushButton, QRadioButton,
                              QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QGroupBox, QButtonGroup,
                              QCheckBox, QFormLayout, QMessageBox,
-                             QTableWidget)
+                             QTableView, QHeaderView)
 
-from PyQt6.QtGui import QIcon, QRegularExpressionValidator
+from PyQt6.QtGui import QIcon, QRegularExpressionValidator, QStandardItemModel, QStandardItem
 from PyQt6.QtCore import Qt, QSize, QRegularExpression
 from algorithms import Algorithms
 
@@ -92,23 +92,26 @@ class Integration(QWidget):
         func_data_grpbox.setLayout(func_data_form)
         func_data_grpbox.setObjectName("main")
 
-        # Creates filltable and input-manually checkboxes and their layout
-        self.filltable = QCheckBox("Fill table")
-        self.input_manually = QCheckBox("Input Manually")
+        # Creates fill_table and input-manually checkboxes and their layout
+        self.fill_table = QCheckBox("Fill table")
+        self.fill_table.clicked.connect(self.fillTable)
+        self.enable_table = QCheckBox("Enable")
+        self.enable_table.clicked.connect(lambda state: self.table.setEnabled(state))
 
         chkbx_hbox = QHBoxLayout()
-        chkbx_hbox.addWidget(self.filltable)
-        chkbx_hbox.addWidget(self.input_manually)
-
-        chkbx_bg = QButtonGroup(self)
-        chkbx_bg.addButton(self.filltable)
-        chkbx_bg.addButton(self.input_manually)
+        chkbx_hbox.addWidget(self.fill_table)
+        chkbx_hbox.addWidget(self.enable_table)
         
-        # Creates a QTableWidget and its layout
-        self.table = QTableWidget()
-        self.table.setRowCount(500)
-        self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(["x", "f(x)"])
+        # Creates a QTableView, QStandardItemModel objects and its layout
+        self.table_model = QStandardItemModel()
+        self.table_model.setRowCount(500)
+        self.table_model.setColumnCount(2)
+        self.table_model.setHorizontalHeaderLabels(["x", "f(x)"])
+
+        self.table = QTableView()
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setModel(self.table_model)
+        self.table.setDisabled(True)
         
         table_layout = QVBoxLayout()
         table_layout.addWidget(self.table)
@@ -120,9 +123,8 @@ class Integration(QWidget):
         table_grpbox.setLayout(table_layout)
 
         self.solve_integral = QPushButton("Calculate Integral")
+        self.solve_integral.clicked.connect(self.solveIntegral)
 
-        
-        
         # Vertical layout for the func_data_grpbox and table_grpbox
         groupbox_layout = QVBoxLayout()
         groupbox_layout.addWidget(func_data_grpbox)
@@ -148,3 +150,141 @@ class Integration(QWidget):
 
         # Adds the results_grpbox to the integral_main_hbox
         self.integral_main_hbox.addLayout(results_layout)
+
+        self.validateFields()
+        self.algo = Algorithms()
+
+    def validateFields(self):
+        """Allows input of text which match a given pattern"""
+        float_regex = QRegularExpression(r"-?[0-9]+.?[0-9]+")
+        expression_regex = QRegularExpression(r"[\s\w 0-9 /()*+.-]+")
+        int_regex = QRegularExpression(r"[0-9]+")
+
+        for i in self.func_edit, self.upper_limit, self.lower_limit, self.intervals:
+            if i is self.func_edit:
+                i.setValidator(QRegularExpressionValidator(QRegularExpression(expression_regex)))
+            elif i in (self.upper_limit, self.lower_limit):
+                i.setValidator(QRegularExpressionValidator(QRegularExpression(float_regex)))
+            else:
+                i.setValidator(QRegularExpressionValidator(QRegularExpression(int_regex)))
+
+    
+    def checkForEmptyFields(self, function, *args):
+        """Returns a warning message if empty fields exist else, calls a function"""
+        if not all((self.func_edit.text(), self.upper_limit.text(), self.lower_limit.text(), self.intervals.text())):
+            QMessageBox.warning(self, "Empty Fields",
+                                "Empty Fields exist in function data, ensure required data is entered in every field.",
+                                QMessageBox.StandardButton.Ok)
+        else:
+            return function(*args)
+    
+    def getFuncData(self):
+        """Gets data from the QLineEdits in the function data groupbox"""
+        # Gets function data
+        function = lambda x: eval(self.func_edit.text())
+        x_lower_num = float(self.lower_limit.text())
+        x_upper_num = float(self.upper_limit.text())
+        x_interval_num = int(self.intervals.text())
+
+        # Returns x values and function to be integrated
+        h = (x_upper_num - x_lower_num)/(x_interval_num)
+        self.x_values = np.arange(x_lower_num, x_upper_num + h, h)
+        return function, x_lower_num, x_upper_num, x_interval_num
+    
+    def getTableData(self):
+        """Gets data from the table widget"""
+        # List to hold x and y axis data
+        list_x, list_y = [], []
+        for index in range(self.table_model.rowCount()):
+            item_x = self.table_model.item(index , 0)
+            item_y = self.table_model.item(index, 1)
+
+            if item_x and item_y:
+                list_x.append(float(item_x.text()))
+                list_y.append(float(item_y.text()))
+
+        return list_x, list_y
+    
+    def enableTable(self, state):
+        """Enables the table or function data groupbox widgets based on the state of the enable checkbox"""
+        if state:
+            self.table.setEnabled(True)
+            for widget in (self.func_edit, self.upper_limit, self.lower_limit, self.intervals):
+                widget.setDisabled(True)
+        else:
+            self.table.setDisabled(True)
+            for widget in (self.func_edit, self.upper_limit, self.lower_limit, self.intervals):
+                widget.setDisabled(False)
+
+    def fillTable(self):
+        """fills each table widget cell with x and y values"""
+        if self.enable_table.isChecked():
+            table_data = self.checkForEmptyFields(self.getFuncData)
+            if table_data:
+                func, *_ = table_data
+                for index, num in enumerate(zip(self.x_values, func(self.x_values))):
+                    item = [QStandardItem(str(i)) for i in num]
+                    self.table_model.insertRow(index, item)
+            else:
+                self.fill_table.setChecked(False)
+        else:
+            self.fill_table.setChecked(False)
+            QMessageBox.warning(self, "Error", "Table must be enabled to fill table.", QMessageBox.StandardButton.Ok)
+
+    def solveSimps3rd(self):
+        function, x_lower_num, x_upper_num, x_interval_num  = self.getFuncData()
+        answer = self.algo.simpsons_3rd_rule(function, x_lower_num, x_upper_num, x_interval_num)
+        self.integral_found.setText(f"{answer}")
+
+    def solveSimps8th(self):
+        function, x_lower_num, x_upper_num, x_interval_num  = self.getFuncData()
+        answer = self.algo.simpsons_8th_rule(function, x_lower_num, x_upper_num, x_interval_num)
+        self.integral_found.setText(f"{answer}")
+    
+    def solveTrapzoid(self):
+        function, x_lower_num, x_upper_num, x_interval_num  = self.getFuncData()
+        answer = self.algo.trapazoidal_rule(function, x_lower_num, x_upper_num, x_interval_num)
+        self.integral_found.setText(f"{answer}")
+    
+    def solveMonteCarlo(self):
+        function, x_lower_num, x_upper_num, x_interval_num  = self.getFuncData()
+        answer = self.algo.monte_carlo(function, x_lower_num, x_upper_num, x_interval_num)
+        self.integral_found.setText(f"{answer}")
+    
+    def solveIntegral(self):
+        """Calculates the required integral using the selected method"""
+        try:
+            
+            if self.simp8th_rb.isChecked():
+                self.checkForEmptyFields(self.solveSimps8th)
+            
+            if self.simps3rd_rb.isChecked():
+                self.checkForEmptyFields(self.solveSimps3rd)
+            
+            if self.trapezium_rb.isChecked():
+                self.checkForEmptyFields(self.solveTrapzoid)
+            
+            if self.montecarlo_rb.isChecked():
+                self.checkForEmptyFields(self.solveMonteCarlo)
+
+        except SyntaxError as error:
+            QMessageBox.warning(self, "Syntax Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except TypeError as error:
+            QMessageBox.warning(self, "Type Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except ValueError as error:
+            QMessageBox.warning(self, "Value Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except RuntimeError as error:
+            QMessageBox.warning(self, "Runtime Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except OverflowError as error:
+            QMessageBox.warning(self, "Overflow Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except ZeroDivisionError as error:
+            QMessageBox.warning(self, "Division by zero Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
+        except NameError as error:
+            QMessageBox.warning(self, "Name Error",
+                                f"{error}", QMessageBox.StandardButton.Ok)
