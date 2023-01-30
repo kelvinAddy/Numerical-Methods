@@ -201,7 +201,7 @@ class Optimization(QWidget):
 
     def validateFields(self):
         """Allows input of text which match a given pattern"""
-        number_regex = QRegularExpression(r"[0-9-]+.?[0-9]+")
+        number_regex = QRegularExpression(r"-?[0-9-]+.?[0-9]+")
         expression_regex = QRegularExpression(r"[\s\w 0-9 /()*+.-]+")
 
         for i in self.line_edit_list:
@@ -232,8 +232,8 @@ class Optimization(QWidget):
             self.x2 = float(self.opti_parabolic_2.text())
             self.x3 = float(self.opti_parabolic_3.text())
 
-    def checkForErrors(self, function):
-        """Calls a function if no error is found"""
+    def checkForEmptyFields(self, function):
+        """Returns a warning message if empty fields exist else, calls a function"""
         if not any((self.opti_func_edit.text(), self.opti_tol_edit.text())):
             QMessageBox.warning(self, "Empty Fields",
                                 "Tolerance or Function field is empty!",
