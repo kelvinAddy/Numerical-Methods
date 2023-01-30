@@ -2,7 +2,7 @@
 
 # imports the required widgets
 import os
-import numpy as np
+from numpy import sin, cos, tan, arange, sqrt
 from PyQt6.QtWidgets import (QWidget, QPushButton, QRadioButton,
                              QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QGroupBox, QButtonGroup,
@@ -188,7 +188,7 @@ class Integration(QWidget):
 
         # Returns x values and function to be integrated
         h = (x_upper_num - x_lower_num)/(x_interval_num)
-        self.x_values = np.arange(x_lower_num, x_upper_num + h, h)
+        self.x_values = arange(x_lower_num, x_upper_num + h, h)
         return function, x_lower_num, x_upper_num, x_interval_num
     
     def getTableData(self):

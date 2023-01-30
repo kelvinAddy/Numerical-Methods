@@ -3,9 +3,10 @@ from PyQt6.QtWidgets import (QLabel, QTableWidget, QWidget,
                             QLineEdit, QHBoxLayout, QVBoxLayout,
                             QCheckBox, QFileDialog, QMessageBox,
                             QTableView)
+                            
 from PyQt6.QtCore import Qt, QRegularExpression
 from PyQt6.QtGui import QStandardItem, QStandardItemModel, QRegularExpressionValidator
-import numpy as np
+from numpy import tan, cos, sin, sqrt, arange
 import csv
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -143,7 +144,7 @@ class PlotGraph(QWidget):
         x_step_num = float(self.step_size.text())
 
         # variables to hold x and y axis data
-        x_values = np.arange(x_lower_num, x_upper_num + x_step_num, x_step_num)
+        x_values = arange(x_lower_num, x_upper_num + x_step_num, x_step_num)
         y_values = function(x_values)
         return x_values, y_values
 

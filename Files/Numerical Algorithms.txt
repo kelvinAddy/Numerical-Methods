@@ -1,0 +1,467 @@
+import numpy as np
+
+class NumericalIntegration:
+    def __init__(self):
+        pass
+
+    def trapazoidal_rule(self, f, a, b, n):
+        """Approximate the definite integral of f from a to b using the
+        composite trapezoidal rule, with n intervals.
+        
+        Parameters
+        ----------
+        f : function
+            The function to be integrated.
+        a : float
+            The lower limit of the integration.
+        b : float
+            The upper limit of the integration.
+        n : int
+            The number of intervals to use.
+        
+        Returns
+        -------
+        float
+            The approximate integral of f from a to b.
+        """
+        h = (b - a) / n
+        s = 0.5 * (f(a) + f(b))
+        for i in range(1, n):
+            s += f(a + i*h)
+        return h * s
+
+    def simpson_rule(self, f, a, b, n):
+        """Approximate the definite integral of f from a to b using the
+        composite Simpson's rule, with n intervals.
+        
+        Parameters
+        ----------
+        f : function
+            The function to be integrated.
+        a : float
+            The lower limit of the integration.
+        b : float
+            The upper limit of the integration.
+        n : int
+            The number of intervals to use. Must be even.
+        
+        Returns
+        -------
+        float
+            The approximate integral of f from a to b.
+        """
+        if n % 2 == 1:
+            raise ValueError("n must be even.")
+        h = (b - a) / n
+        s = f(a) + f(b)
+        for i in range(1, n, 2):
+            s += 4 * f(a + i*h)
+        for i in range(2, n-1, 2):
+            s += 2 * f(a + i*h)
+        return h * s / 3
+
+    def monte_carlo(self, f, a, b, n):
+        """Approximate the definite integral of f from a to b using the
+        Monte Carlo method, with n samples.
+        
+        Parameters
+        ----------
+        f : function
+            The function to be integrated.
+        a : float
+            The lower limit of the integration.
+        b : float
+            The upper limit of the integration.
+        n : int
+            The number of samples to use.
+        
+        Returns
+        -------
+        float
+            The approximate integral of f from a to b.
+        """
+        s = 0
+        for i in range(n):
+            x = np.random.uniform(a, b)
+            s += f(x)
+        return (b - a) * s / n
+
+
+def bisection_algorithm(f, a, b, y, margin=.00_001):
+    ''' Bracketed approach of Root-finding with bisection method
+    Parameters
+    ----------
+    f: callable, continuous function
+    a: float, lower bound to be searched
+    b: float, upper bound to be searched
+    y: float, target value
+    margin: float, margin of error in absolute term
+    Returns
+    -------
+    A float c, where f(c) is within the margin of y
+    '''
+    
+    if (lower := f(a)) > (upper := f(b)):
+        a, b = b, a
+        lower, upper = upper, lower
+
+    assert y >= lower, f"y is smaller than the lower bound. {y} < {lower}"
+    assert y <= upper, f"y is larger than the upper bound. {y} > {upper}"
+
+    while 1:
+        c = (a + b) / 2
+        if abs((y_c := f(c)) - y) < margin:
+            # found!
+            return c
+        elif y < y_c:
+            b, upper = c, y_c
+        else:
+            a, lower = c, y_c
+
+def regula_falsi_algorithm(f, a, b, y, margin=.00_001):
+    ''' Bracketed approach of Root-finding with regula-falsi method
+    Parameters
+    ----------
+    f: callable, continuous function
+    a: float, lower bound to be searched
+    b: float, upper bound to be searched
+    y: float, target value
+    margin: float, margin of error in absolute term
+    Returns
+    -------
+    A float c, where f(c) is within the margin of y
+    '''
+
+    assert y >= (lower := f(a)), f"y is smaller than the lower bound. {y} < {lower}"
+    assert y <= (upper := f(b)), f"y is larger than the upper bound. {y} > {upper}"
+
+    while 1:
+        c = ((a * (upper - y)) - (b * (lower - y))) / (upper - lower)
+        if abs((y_c := f(c)) - y) < margin:
+            # found!
+            return c
+        elif y < y_c:
+            b, upper = c, y_c
+        else:
+            a, lower = c, y_c
+
+def fixedPointIteration(x0, e, N):
+    print('\n\n*** FIXED POINT ITERATION ***')
+    step = 1
+    flag = 1
+    condition = True
+    while condition:
+        x1 = g(x0)
+        print('Iteration-%d, x1 = %0.6f and f(x1) = %0.6f' % (step, x1, f(x1)))
+        x0 = x1
+
+        step = step + 1
+        
+        if step > N:
+            flag=0
+            break
+        
+        condition = abs(f(x1)) > e
+
+    if flag==1:
+        print('\nRequired root is: %0.8f' % x1)
+    else:
+        print('\nNot Convergent.')
+
+def illinois_algorithm(f, a, b, y, margin=.00_001):
+    ''' Bracketed approach of Root-finding with illinois method
+    Parameters
+    ----------
+    f: callable, continuous function
+    a: float, lower bound to be searched
+    b: float, upper bound to be searched
+    y: float, target value
+    margin: float, margin of error in absolute term
+    Returns
+    -------
+    A float c, where f(c) is within the margin of y
+    '''
+
+    assert y >= (lower := f(a)), f"y is smaller than the lower bound. {y} < {lower}"
+    assert y <= (upper := f(b)), f"y is larger than the upper bound. {y} > {upper}"
+
+    stagnant = 0
+
+    while 1:
+        c = ((a * (upper - y)) - (b * (lower - y))) / (upper - lower)
+        if abs((y_c := f(c)) - y) < margin:
+            # found!
+            return c
+        elif y < y_c:
+            b, upper = c, y_c
+            if stagnant == -1:
+                # Lower bound is stagnant!
+                lower += (y - lower) / 2
+            stagnant = -1
+        else:
+            a, lower = c, y_c
+            if stagnant == 1:
+                # Upper bound is stagnant!
+                upper -= (upper - y) / 2
+            stagnant = 1
+
+
+def secant_algorithm(f, x_0, x_1, y, iterations, margin=.00_001):
+    ''' Iterative approach of Root-finding with secant method
+    Parameters
+    ----------
+    f: callable, continuous function
+    x_0: float, initial seed
+    x_1: float, initial seed
+    y: float, target value
+    iterations: int, maximum number of iterations to avoid indefinite divergence
+    margin: float, margin of error in absolute term
+    Returns
+    -------
+    A float x_2, where f(x_2) is within the margin of y
+    '''
+
+    assert x_0 != x_1, "Two different initial seeds are required."
+
+    if abs((y_0 := f(x_0) - y)) < margin:
+        # found!
+        return x_0
+    if abs((y_1 := f(x_1) - y)) < margin:
+        # found!
+        return x_1
+
+    for i in range(iterations):
+        x_2 = x_1 - y_1 * (x_1 - x_0) / (y_1 - y_0)
+        if abs((y_2 := f(x_2) - y)) < margin:
+            # found!
+            return x_2
+        x_0, x_1 = x_1, x_2
+        y_0, y_1 = y_1, y_2
+    return x_2
+
+
+def steffensen_algorithm(f, x, y, iterations, margin=.00_001):
+    ''' Iterative approach of Root-finding with steffensen's method
+    Parameters
+    ----------
+    f: callable, continuous function
+    x: float, initial seed
+    y: float, target value
+    iterations: int, maximum number of iterations to avoid indefinite divergence
+    margin: float, margin of error in absolute term
+    Returns
+    -------
+    A float x_2, where f(x_2) is within the margin of y
+    '''
+
+    assert x != 0, "Initial seed cannot be zero."
+    
+    if abs((y_x := f(x) - y)) < margin:
+        # found!
+        return x
+
+    for i in range(iterations):
+        g = (f(x + y_x) - y) / y_x - 1
+        if g * x == 0:
+            # Division by zero, search stops
+            return x
+        x -= (f(x) - y) / (g * x)
+        if abs((y_x := f(x) - y)) < margin:
+            # found!
+            return x
+    return x
+
+
+def golden_section_search(f, a, b, tol=1e-5):
+  # Constants for the golden ratio
+  gr = (1 + 5 ** 0.5) / 2
+
+  # Calculate the distances between the points
+  c = b - (b - a) / gr
+  d = a + (b - a) / gr
+
+  while abs(c - d) > tol:
+    # Evaluate the function at the points c and d
+    fc = f(c)
+    fd = f(d)
+
+    if fc < fd:
+      # Set b to the value of d and recalculate c
+      b = d
+      d = c
+      c = b - (b - a) / gr
+    else:
+      # Set a to the value of c and recalculate d
+      a = c
+      c = d
+      d = a + (b - a) / gr
+
+  # Return the midpoint between a and b as the final result
+  return (b + a) / 2
+
+def parabolic_interpolation(f, x1, x2, x3, epsilon=1e-6):
+    while True:
+        # Calculate the parabolic fit through the three points
+        f1 = f(x1)
+        f2 = f(x2)
+        f3 = f(x3)
+        A = (f1 * (x2 - x3) + f2 * (x3 - x1) + f3 * (x1 - x2)) / (x1 * x1 * (x2 - x3) + x2 * x2 * (x3 - x1) + x3 * x3 * (x1 - x2))
+        B = (f1 * (x2 * x2 - x3 * x3) + f2 * (x3 * x3 - x1 * x1) + f3 * (x1 * x1 - x2 * x2)) / (x1 * (x2 - x3) * (x2 - x3) + x2 * (x3 - x1) * (x3 - x1) + x3 * (x1 - x2) * (x1 - x2))
+        C = (f1 * (x3 * x3 * x3 - x2 * x2 * x2) + f2 * (x1 * x1 * x1 - x3 * x3 * x3) + f3 * (x2 * x2 * x2 - x1 * x1 * x1)) / (x1 * x1 * (x2 - x3) + x2 * x2 * (x3 - x1) + x3 * x3 * (x1 - x2))
+
+        # Calculate the minimum of the parabolic fit
+        xmin = -B / (2 * A)
+
+        # Check if we have found a satisfactory minimum
+        if abs(xmin - x2) < epsilon:
+            return xmin
+
+        # Update the bounds for the next iteration
+        if f(xmin) < f2:
+            x3 = x2
+            x2 = xmin
+        else:
+            x1 = x2
+            x2 = xmin
+
+
+def fixed_point_iteration(f, x0, tolerance, max_iter):
+  """
+  Finds the root of a function f(x) using fixed point iteration.
+
+  Parameters:
+  f (function): The function for which we want to find the root.
+  x0 (float): Initial guess for the root.
+  tolerance (float): The tolerance level for the root. If the difference between the
+                    current and previous estimates of the root is less than the tolerance,
+                    the function will return the root.
+  max_iter (int): The maximum number of iterations to perform before returning the root.
+
+  Returns:
+  float: The root of the function f(x).
+  """
+  # Initialize the current estimate of the root and the previous estimate
+  x_curr = x0
+  x_prev = x0
+
+  # Iterate until we reach the maximum number of iterations or the tolerance level
+  for i in range(max_iter):
+    # Update the current estimate of the root using the fixed point iteration formula
+    x_curr = f(x_prev)
+
+    # Check if the difference between the current and previous estimates is within the tolerance
+    if abs(x_curr - x_prev) < tolerance:
+      return x_curr
+
+    # Update the previous estimate of the root
+    x_prev = x_curr
+
+  # Return the root if we reached the maximum number of iterations
+  return x_curr
+
+        if f(a) * f(b) > 0: QMessageBox.warning(self,"Value Error",
+                                "Root is not within the interval",
+                                QMessageBox.StandardButton.Ok)
+
+        if  x_0 == x_1: QMessageBox.warning(self, "Value Error",
+                                            "Two different initial seeds are required.",
+                                            QMessageBox.StandardButton.Ok)
+
+        if  x == 0: QMessageBox.warning(self,"Value Error",
+                                        "Initial seed cannot be zero.",
+                                        QMessageBox.StandardButton.Ok)
+
+
+def simpsons_rule(f, a, b, n):
+  """
+  Approximates the definite integral of a function f(x) over the interval [a, b]
+  using Simpson's 1/3 rule.
+
+  Parameters:
+  f (function): The function to be integrated.
+  a (float): The lower bound of the interval of integration.
+  b (float): The upper bound of the interval of integration.
+  n (int): The number of subintervals to use in the approximation.
+
+  Returns:
+  float: The approximate value of the definite integral of f(x) over the interval [a, b].
+  """
+  # Check that n is even
+  if n % 2 != 0:
+    raise ValueError("n must be even")
+
+  # Compute the width of each subinterval
+  h = (b - a) / n
+
+  # Initialize the sum
+  integral = 0
+
+  # Iterate over the subintervals
+  for i in range(n + 1):
+    # Compute the value of x at the current point
+    x = a + i * h
+
+    # Check if the current point is a starting, ending, or middle point
+    if i == 0 or i == n:
+      # If it's a starting or ending point, use a weight of 1
+      weight = 1
+    elif i % 2 == 0:
+      # If it's an even-numbered middle point, use a weight of 2
+      weight = 2
+    else:
+      # If it's an odd-numbered middle point, use a weight of 4
+      weight = 4
+
+    # Add the contribution from the current point to the sum
+    integral += weight * f(x)
+
+  # Return the approximation of the integral using Simpson's 1/3 rule
+  return integral * h / 3
+
+
+def simpsons_rule(f, a, b, n):
+  """
+  Approximates the definite integral of a function f(x) over the interval [a, b]
+  using Simpson's 3/8 rule.
+
+  Parameters:
+  f (function): The function to be integrated.
+  a (float): The lower bound of the interval of integration.
+  b (float): The upper bound of the interval of integration.
+  n (int): The number of subintervals to use in the approximation.
+
+  Returns:
+  float: The approximate value of the definite integral of f(x) over the interval [a, b].
+  """
+  # Check that n is divisible by 3
+  if n % 3 != 0:
+    raise ValueError("n must be divisible by 3")
+
+  # Compute the width of each subinterval
+  h = (b - a) / n
+
+  # Initialize the sum
+  integral = 0
+
+  # Iterate over the subintervals
+  for i in range(n + 1):
+    # Compute the value of x at the current point
+    x = a + i * h
+
+    # Check if the current point is a starting, ending, or middle point
+    if i == 0 or i == n:
+      # If it's a starting or ending point, use a weight of 1
+      weight = 1
+    elif (i - 1) % 3 == 0:
+      # If it's a point one step away from the starting or ending point, use a weight of 3
+      weight = 3
+    else:
+      # If it's a middle point, use a weight of 3
+      weight = 3
+
+    # Add the contribution from the current point to the sum
+    integral += weight * f(x)
+
+  # Return the approximation of the integral using Simpson's 3/8 rule
+  return integral * 3 * h / 8
+

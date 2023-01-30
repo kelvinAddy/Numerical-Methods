@@ -2,6 +2,7 @@
 
 # imports the required widgets
 import os
+from numpy import sin, cos, tan, arange, sqrt
 
 from PyQt6.QtWidgets import (QWidget, QPushButton, QRadioButton,
                              QVBoxLayout, QHBoxLayout, QLabel,
